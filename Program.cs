@@ -1,7 +1,5 @@
 ﻿using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -22,36 +20,36 @@ namespace _1cWorkaround
         public const string ArchiveName = "data.zip";
         public const string XmlName = "example.xml";
     }
-    
-    class Program
+
+    static class Program
     {
-        static void Main(string[] args)
+        static async Task Main(string[] args)
         {
             ZipBuilder.Build(Constants.XmlName, Constants.ArchiveName);
 
             string url = $"https://1cfresh.com:443/a/ea/{Constants.TENANT_ID}/hs/dt/storage/integration/post/";
 
-            var res = SimpleBrowser.DataTransferStart(url).Result;
+            DataTransferResponse res = await SimpleBrowser.DataTransferStart(url);
 
-            ResponseModel job = SimpleBrowser.DataTransferFinish(res.Url, Constants.ArchiveName).Result;
+            ResponseModel job = await SimpleBrowser.DataTransferFinish(res.Url, Constants.ArchiveName);
 
             url = $"https://1cfresh.com:443/a/ea/{Constants.TENANT_ID}/hs/dt/storage/{job.Result.Storage}/{job.Result.Id}";
 
-            JobResult jobResult = SimpleBrowser.GetJobStart(url).Result;
+            JobResult jobResult = await SimpleBrowser.GetJobStart(url);
 
-            if(jobResult == null)
+            if (jobResult == null)
             {
-                for(int i = 0; i < 10; i++)
+                for (int i = 0; i < 10; i++)
                 {
                     Thread.Sleep(1000);
-                    jobResult = SimpleBrowser.GetJob(url).Result;
+                    jobResult = await SimpleBrowser.GetJob(url);
 
-                    if(jobResult != null) break;
+                    if (jobResult != null) break;
                 }
             }
 
-            if(jobResult == null) return;
-            
+            if (jobResult == null) return;
+
             //Upload Complete
         }
     }
@@ -75,23 +73,23 @@ namespace _1cWorkaround
                 File.Delete(archiveName);
             }
 
-            using(var stream = new FileStream(archiveName, FileMode.Create))
+            using (var stream = new FileStream(archiveName, FileMode.Create))
             {
-                using(var zip = new ZipArchive(stream, ZipArchiveMode.Create, true))
+                using (var zip = new ZipArchive(stream, ZipArchiveMode.Create, true))
                 {
                     ZipArchiveEntry manifest = zip.CreateEntry("manifest.json");
-                    using(Stream s = manifest.Open())
+                    using (Stream s = manifest.Open())
                     {
-                        using(var writer = new StreamWriter(s))
+                        using (var writer = new StreamWriter(s))
                         {
                             writer.Write(json);
                         }
                     }
 
                     var xml = zip.CreateEntry("data.xml");
-                    using(Stream s = xml.Open())
+                    using (Stream s = xml.Open())
                     {
-                        using(var fileStream = new FileStream(path, FileMode.Open))
+                        using (var fileStream = new FileStream(path, FileMode.Open))
                         {
                             fileStream.CopyTo(s);
                         }
@@ -142,7 +140,7 @@ namespace _1cWorkaround
             FileStream fileStream = File.OpenRead(path);
             var content = new MultipartFormDataContent();
             content.Add(new StreamContent(fileStream));
-            
+
             request.Content = content;
 
             HttpResponseMessage response = await _client.SendAsync(request);
@@ -191,8 +189,8 @@ namespace _1cWorkaround
             var cookies = _handler.CookieContainer.GetCookies(new Uri($"https://1cfresh.com:443/a/ea/{Constants.TENANT_ID}/"));
             foreach (Cookie cookie in cookies)
             {
-                if(cookie.Name != "ibsession") continue;
-                
+                if (cookie.Name != "ibsession") continue;
+
                 cookie.Expired = true;
             }
         }
